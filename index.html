@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>极速压缩助手</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; touch-action: manipulation; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .tab-active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        .tab-inactive { color: #6b7280; }
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #2563eb; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        input[type="file"] { display: none; }
+        /* 隐藏滚动条但保留功能 */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 safe-area-top">
+        <h1 class="text-xl font-bold text-gray-800"><i class="fas fa-compress-alt text-blue-600 mr-2"></i>极速压缩</h1>
+        <div class="text-xs text-gray-400" id="version-info">v1.0</div>
+    </header>
+
+    <div class="bg-white px-6 py-2 flex justify-around border-b safe-area-bottom">
+        <button onclick="switchTab('image')" id="tab-image" class="tab-active pb-2 text-sm font-medium transition-colors w-1/3">图片</button>
+        <button onclick="switchTab('video')" id="tab-video" class="tab-inactive pb-2 text-sm font-medium transition-colors w-1/3">视频</button>
+        <button onclick="switchTab('audio')" id="tab-audio" class="tab-inactive pb-2 text-sm font-medium transition-colors w-1/3">音频</button>
+    </div>
+
+    <main class="flex-1 overflow-y-auto p-6 relative">
+        <!-- 图片模块 -->
+        <div id="view-image" class="space-y-6">
+            <div class="glass-card p-8 text-center border-2 border-dashed border-gray-300 active:bg-blue-50 transition-colors" onclick="document.getElementById('imgInput').click()">
+                <i class="fas fa-cloud-upload-alt text-5xl text-blue-500 mb-4"></i>
+                <p class="text-gray-700 font-bold text-lg">点击选择图片</p>
+                <p class="text-xs text-gray-400 mt-2">支持 JPG, PNG, WEBP</p>
+                <input type="file" id="imgInput" accept="image/*" onchange="handleImage(this)">
+            </div>
+
+            <div id="img-controls" class="glass-card p-5 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-600">压缩质量</span>
+                    <span id="quality-val" class="text-sm font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded">0.6</span>
+                </div>
+                <input type="range" id="quality-range" min="0.1" max="1.0" step="0.1" value="0.6" class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="updateQuality(this.value)">
+                <button onclick="compressImage()" class="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex justify-center items-center">
+                    <span>开始压缩</span>
+                    <div class="loader ml-2" id="img-loader"></div>
+                </button>
+            </div>
+
+            <div id="img-result" class="glass-card p-5 hidden mt-4 border-l-4 border-green-500">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm text-green-600 font-bold"><i class="fas fa-check-circle"></i> 压缩完成</span>
+                    <span id="img-size-info" class="text-xs text-gray-500"></span>
+                </div>
+                <img id="img-preview" class="w-full h-56 object-contain bg-gray-50 rounded-lg mb-4 border">
+                <a id="img-download" class="block w-full bg-green-500 text-white text-center py-3 rounded-xl font-bold shadow-md active:bg-green-600">保存图片到相册</a>
+            </div>
+        </div>
+
+        <!-- 视频/音频模块 (占位) -->
+        <div id="view-video" class="hidden space-y-6">
+            <div class="glass-card p-8 text-center">
+                <i class="fas fa-video text-5xl text-purple-500 mb-4"></i>
+                <p class="text-gray-700 font-bold text-lg">视频压缩</p>
+                <p class="text-xs text-gray-400 mt-2 mb-6">本地处理大视频可能消耗较多内存</p>
+                <button class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold opacity-50 cursor-not-allowed">功能开发中</button>
+            </div>
+        </div>
+        <div id="view-audio" class="hidden space-y-6">
+            <div class="glass-card p-8 text-center">
+                <i class="fas fa-music text-5xl text-pink-500 mb-4"></i>
+                <p class="text-gray-700 font-bold text-lg">音频压缩</p>
+                <p class="text-xs text-gray-400 mt-2 mb-6">支持 MP3, AAC 格式</p>
+                <button class="w-full bg-pink-600 text-white py-3 rounded-xl font-bold opacity-50 cursor-not-allowed">功能开发中</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(() => {
+                console.log('Service Worker 注册成功');
+            }).catch(err => console.error('SW 注册失败:', err));
+        }
+
+        function switchTab(tabName) {
+            ['image', 'video', 'audio'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('tab-active');
+                document.getElementById(`tab-${t}`).classList.add('tab-inactive');
+            });
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.remove('tab-inactive');
+            document.getElementById(`tab-${tabName}`).classList.add('tab-active');
+        }
+
+        let currentFile = null;
+        function handleImage(input) {
+            if (input.files && input.files[0]) {
+                currentFile = input.files[0];
+                document.getElementById('img-controls').classList.remove('hidden');
+                document.getElementById('img-result').classList.add('hidden');
+                const sizeMB = (currentFile.size / 1024 / 1024).toFixed(2);
+                document.getElementById('img-size-info').innerText = `原始：${sizeMB} MB`;
+            }
+        }
+
+        function updateQuality(val) {
+            document.getElementById('quality-val').innerText = val;
+        }
+
+        function compressImage() {
+            if (!currentFile) return;
+            const btn = document.querySelector('#img-controls button');
+            const loader = document.getElementById('img-loader');
+            const originalText = btn.querySelector('span').innerText;
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-75');
+            loader.style.display = 'block';
+            btn.querySelector('span').innerText = '处理中...';
+
+            const quality = parseFloat(document.getElementById('quality-range').value);
+
+            new Compressor(currentFile, {
+                quality: quality,
+                success(result) {
+                    const url = URL.createObjectURL(result);
+                    document.getElementById('img-preview').src = url;
+                    document.getElementById('img-download').href = url;
+                    document.getElementById('img-download').download = `compressed_${currentFile.name}`;
+                    
+                    const newSizeMB = (result.size / 1024 / 1024).toFixed(2);
+                    const oldSizeMB = (currentFile.size / 1024 / 1024).toFixed(2);
+                    const savings = ((1 - result.size / currentFile.size) * 100).toFixed(1);
+                    
+                    document.getElementById('img-size-info').innerHTML = 
+                        `<span class="text-red-400 line-through mr-1">${oldSizeMB}MB</span> 
+                         <span class="text-green-600 font-bold">${newSizeMB}MB</span> 
+                         <span class="text-xs text-gray-400">(-${savings}%)</span>`;
+                    
+                    document.getElementById('img-result').classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75');
+                    loader.style.display = 'none';
+                    btn.querySelector('span').innerText = originalText;
+                    
+                    // 震动反馈 (安卓支持)
+                    if (navigator.vibrate) navigator.vibrate(50);
+                },
+                error(err) {
+                    alert('压缩失败');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75');
+                    loader.style.display = 'none';
+                    btn.querySelector('span').innerText = originalText;
+                },
+            });
+        }
+    </script>
+</body>
+</html>
